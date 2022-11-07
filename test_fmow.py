@@ -130,12 +130,12 @@ def test_loader(args, g_ema, device):
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
 
 #     if args.distributed:
-#         g_module = generator.module
-#         d_module = discriminator.module
+        #   g_module = generator.module
+        #   d_module = discriminator.module
 
 #     else:
-#         g_module = generator
-#         d_module = discriminator
+        #   g_module = generator
+        #   d_module = discriminator
 
     with torch.no_grad():
         g_ema.eval()
@@ -209,12 +209,12 @@ def test_patch_loader(args, g_ema, device):
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
 
 #     if args.distributed:
-#         g_module = generator.module
-#         d_module = discriminator.module
+        #   g_module = generator.module
+        #   d_module = discriminator.module
 
 #     else:
-#         g_module = generator
-#         d_module = discriminator
+        #   g_module = generator
+        #   d_module = discriminator
 
     with torch.no_grad():
         g_ema.eval()
@@ -228,8 +228,8 @@ def test_patch_loader(args, g_ema, device):
 
                 break
 
-#             if i > 15:
-#                 break
+        #       if i > 15:
+        #           break
 
             sample_patches = {}
 
@@ -255,7 +255,7 @@ def test_patch_loader(args, g_ema, device):
                     sample_patches[patch_index] = sample
 
                 sample = stack_sliding_patches(sample_patches, 1, args.coords_size, args.crop_size)
-    #             sample = stack_patches(sample_patches, 1, args.coords_size, args.crop_size)
+            #       sample = stack_patches(sample_patches, 1, args.coords_size, args.crop_size)
 
                 utils.save_image(
                     sample,
@@ -321,10 +321,10 @@ if __name__ == '__main__':
     print("Using:", n_gpu, "GPUs")
 
 #     if args.distributed:
-#         print("Parallelized")
-#         torch.cuda.set_device(args.local_rank)
-#         torch.distributed.init_process_group(backend='nccl', init_method='env://')
-#         synchronize()
+        #   print("Parallelized")
+        #   torch.cuda.set_device(args.local_rank)
+        #   torch.distributed.init_process_group(backend='nccl', init_method='env://')
+        #   synchronize()
 
 #     args.n_mlp = 1
     args.dis_input_size = 9 if args.img2dis else 12
@@ -343,8 +343,8 @@ if __name__ == '__main__':
 
         ckpt = torch.load(args.ckpt)
 
-#         generator.load_state_dict(ckpt['g'])
-#         discriminator.load_state_dict(ckpt['d'])
+        #   generator.load_state_dict(ckpt['g'])
+        #   discriminator.load_state_dict(ckpt['d'])
         g_ema.load_state_dict(ckpt['g_ema'])
 
         del ckpt
@@ -353,26 +353,26 @@ if __name__ == '__main__':
         raise Exception("You need to include a checkpoint file for your model")
 
 #     if args.distributed:
-#         generator = nn.parallel.DistributedDataParallel(
-#             generator,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
+        #   generator = nn.parallel.DistributedDataParallel(
+        #       generator,
+        #       device_ids=[args.local_rank],
+        #       output_device=args.local_rank,
+        #       broadcast_buffers=False,
+        #   )
 
-#         discriminator = nn.parallel.DistributedDataParallel(
-#             discriminator,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
+        #   discriminator = nn.parallel.DistributedDataParallel(
+        #       discriminator,
+        #       device_ids=[args.local_rank],
+        #       output_device=args.local_rank,
+        #       broadcast_buffers=False,
+        #   )
 #
-#         encoder = nn.parallel.DistributedDataParallel(
-#             encoder,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
+        #   encoder = nn.parallel.DistributedDataParallel(
+        #       encoder,
+        #       device_ids=[args.local_rank],
+        #       output_device=args.local_rank,
+        #       broadcast_buffers=False,
+        #   )
 
 test_loader(args, g_ema, device)
 # test_patch_loader(args, g_ema, device)

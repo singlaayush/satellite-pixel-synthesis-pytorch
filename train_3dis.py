@@ -20,6 +20,11 @@ from distributed import get_rank, synchronize, reduce_loss_dict
 from tensor_transforms import convert_to_coord_format
 import torchvision.models as models
 
+"""
+Code notation: 
+d_ => discriminator
+g_ => generator
+"""
 
 def data_sampler(dataset, shuffle, distributed):
     if distributed:
@@ -104,6 +109,7 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
 
     pbar = range(args.iter)
 
+    # create progress bar
     if get_rank() == 0:
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
 
@@ -329,6 +335,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--data_path', type=str, default="")
     parser.add_argument('--path', type=str, default="")
     parser.add_argument('--test_path', type=str, default="")
     parser.add_argument('--output_dir', type=str, default="texas_test")
@@ -403,7 +410,8 @@ if __name__ == '__main__':
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
         synchronize()
 
-#     args.n_mlp = 3
+    #  args.n_mlp = 3
+    
     args.dis_input_size = 9 if args.img2dis else 12
     print('img2dis', args.img2dis, 'dis_input_size', args.dis_input_size)
 
@@ -414,12 +422,13 @@ if __name__ == '__main__':
     generator = Generator(size=args.size, hidden_size=args.fc_dim, style_dim=args.latent, n_mlp=args.n_mlp,
                           activation=args.activation, linear_size = args.linear_dim, channel_multiplier=args.channel_multiplier,
                           ).to(device)
-
     print('generator N params', sum(p.numel() for p in generator.parameters() if p.requires_grad))
+    
     discriminator = Discriminator(
         size=args.crop, channel_multiplier=args.channel_multiplier, n_scales=n_scales, input_size=args.dis_input_size,
         n_first_layers=args.n_first_layers,
     ).to(device)
+    
     g_ema = Generator(size=args.size, hidden_size=args.fc_dim, style_dim=args.latent, n_mlp=args.n_mlp,
                       activation=args.activation, linear_size = args.linear_dim, channel_multiplier=args.channel_multiplier,
                       ).to(device)
@@ -429,9 +438,9 @@ if __name__ == '__main__':
     g_reg_ratio = args.g_reg_every / (args.g_reg_every + 1)
     d_reg_ratio = args.d_reg_every / (args.d_reg_every + 1)
 
-#     resnet18 = models.resnet18(pretrained=True).to(device)
-#     modules = list(resnet18.children())[:-1]
-#     encoder = nn.Sequential(*modules)
+    #  resnet18 = models.resnet18(pretrained=True).to(device)
+    #  modules = list(resnet18.children())[:-1]
+    #  encoder = nn.Sequential(*modules)
 
     g_optim = optim.Adam(
         generator.parameters(),
@@ -452,7 +461,6 @@ if __name__ == '__main__':
         try:
             ckpt_name = os.path.basename(args.ckpt)
             args.start_iter = int(os.path.splitext(ckpt_name)[0])
-
         except ValueError:
             pass
 
@@ -481,12 +489,12 @@ if __name__ == '__main__':
             broadcast_buffers=False,
         )
 
-#         encoder = nn.parallel.DistributedDataParallel(
-#             encoder,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
+    # encoder = nn.parallel.DistributedDataParallel(
+    #     encoder,
+    #     device_ids=[args.local_rank],
+    #     output_device=args.local_rank,
+    #     broadcast_buffers=False,
+    # )
 
     enc_transform = transforms.Compose(
         [
@@ -507,17 +515,21 @@ if __name__ == '__main__':
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
         ]
     )
+    
     # transform_fid = transforms.Compose([
     #                                    transforms.ToTensor(),
     #                                    transforms.Lambda(lambda x: x.mul_(255.).byte())])
     # dataset = MultiScaleDataset(args.path, transform=transform, resolution=args.coords_size, crop_size=args.crop,
     #                             integer_values=args.coords_integer_values, to_crop=args.to_crop)
+    
     dataset = Naip2SentinelTDataset(args.path, transform=transform, enc_transform=enc_transform,
-                                    resolution=args.coords_size, integer_values=args.coords_integer_values)
+                                    resolution=args.coords_size, integer_values=args.coords_integer_values, data_path=args.data_path)
     testset = Naip2SentinelTDataset(args.test_path, transform=transform, enc_transform=enc_transform,
-                                    resolution=args.coords_size, integer_values=args.coords_integer_values)
+                                    resolution=args.coords_size, integer_values=args.coords_integer_values, data_path=args.data_path)
+    
     # fid_dataset = ImageDataset(args.path, transform=transform_fid, resolution=args.coords_size, to_crop=args.to_crop)
     # fid_dataset.length = args.fid_samples
+    
     loader = data.DataLoader(
         dataset,
         batch_size=args.batch,
@@ -539,7 +551,7 @@ if __name__ == '__main__':
     test_data = iter(test_loader).next()
     del testset
     del test_loader
-#     print(test_data[0].shape)
+    # print(test_data[0].shape)
 
     writer = SummaryWriter(log_dir=args.logdir)
 

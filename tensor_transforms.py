@@ -33,7 +33,7 @@ def convert_to_coord_uneven_t(b, h, w, t, unit = 365, sin = False, device='cpu',
         y_channel = torch.arange(h, dtype=torch.float, device=device).view(1, 1, -1, 1).repeat(b, 1, 1, h)
         t_channel = torch.ones((b, 1, w, h), dtype=torch.float, device=device)*t
     else:
-#         t_norm = t/unit
+        #   t_norm = t/unit
         if sin:
             t_norm = torch.sin(torch.tensor(t, dtype=torch.float))
         else:

@@ -38,7 +38,7 @@ def stack_patches(patches, batch_size, resolution, patch_size, channel_size = 3)
     n = resolution // patch_size
     for i in range(n):
             for j in range(n):
-#                 print(patches[(i,j)].shape)
+        #           print(patches[(i,j)].shape)
                 result[:, :, i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = patches[(i,j)]
     return result
 
@@ -192,9 +192,9 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
             )
 
         noise = mixing_noise(args.batch, args.latent, args.mixing, device)
-#         lowres_embedding = encoder(lowres_img).squeeze()
-#         highres2_embedding = encoder(highres_img2).squeeze()
-#         print(lowres_embedding.shape)
+        #   lowres_embedding = encoder(lowres_img).squeeze()
+        #   highres2_embedding = encoder(highres_img2).squeeze()
+        #   print(lowres_embedding.shape)
 
         fake_img, _ = generator(converted, lowres_img, highres_img2, noise, h_start, w_start)
         fake = fake_img if args.img2dis else torch.cat([fake_img, converted], 1)
@@ -375,12 +375,12 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                         path,
                         f'outputs/{args.output_dir}/checkpoints/{str(i).zfill(6)}.pt'),
                 )
-#             if i % (args.save_checkpoint_frequency*10) == 0 and i > 0:
-#                 cur_metrics = calculate_fid(g_ema, fid_dataset=fid_dataset, bs=args.fid_batch, size=args.coords_size,
-#                                             num_batches=args.fid_samples//args.fid_batch, latent_size=args.latent,
-#                                             save_dir=args.path_fid, integer_values=args.coords_integer_values)
-#                 writer.add_scalar("fid", cur_metrics['frechet_inception_distance'], i)
-#                 print(i, "fid",  cur_metrics['frechet_inception_distance'])
+        #       if i % (args.save_checkpoint_frequency*10) == 0 and i > 0:
+        #           cur_metrics = calculate_fid(g_ema, fid_dataset=fid_dataset, bs=args.fid_batch, size=args.coords_size,
+        #                                       num_batches=args.fid_samples//args.fid_batch, latent_size=args.latent,
+        #                                       save_dir=args.path_fid, integer_values=args.coords_integer_values)
+        #           writer.add_scalar("fid", cur_metrics['frechet_inception_distance'], i)
+        #           print(i, "fid",  cur_metrics['frechet_inception_distance'])
 
 
 if __name__ == '__main__':
@@ -542,12 +542,12 @@ if __name__ == '__main__':
             broadcast_buffers=False,
         )
 
-#         encoder = nn.parallel.DistributedDataParallel(
-#             encoder,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
+        #   encoder = nn.parallel.DistributedDataParallel(
+        #       encoder,
+        #       device_ids=[args.local_rank],
+        #       output_device=args.local_rank,
+        #       broadcast_buffers=False,
+        #   )
 
     enc_transform = transforms.Compose(
         [
@@ -569,10 +569,10 @@ if __name__ == '__main__':
         ]
     )
     # transform_fid = transforms.Compose([
-    #                                    transforms.ToTensor(),
-    #                                    transforms.Lambda(lambda x: x.mul_(255.).byte())])
+            #                              transforms.ToTensor(),
+            #                              transforms.Lambda(lambda x: x.mul_(255.).byte())])
     # dataset = MultiScaleDataset(args.path, transform=transform, resolution=args.coords_size, crop_size=args.crop,
-    #                             integer_values=args.coords_integer_values, to_crop=args.to_crop)
+            #                       integer_values=args.coords_integer_values, to_crop=args.to_crop)
     dataset = FMoWSentinelPatch(args.path, transform=transform, enc_transform=enc_transform,
                                     resolution=args.coords_size, crop_size = args.crop_size,
                                     integer_values=args.coords_integer_values)

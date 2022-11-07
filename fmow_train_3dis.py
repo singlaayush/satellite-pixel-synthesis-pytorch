@@ -151,9 +151,9 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
         requires_grad(discriminator, True)
 
         noise = mixing_noise(args.batch, args.latent, args.mixing, device)
-#         lowres_embedding = encoder(lowres_img).squeeze()
-#         highres2_embedding = encoder(highres_img2).squeeze()
-#         print(lowres_embedding.shape)
+        #   lowres_embedding = encoder(lowres_img).squeeze()
+        #   highres2_embedding = encoder(highres_img2).squeeze()
+        #   print(lowres_embedding.shape)
 
         fake_img, _ = generator(converted, lowres_img, highres_img2, noise)
         fake = fake_img if args.img2dis else torch.cat([fake_img, converted], 1)
@@ -272,8 +272,8 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                     )
 
                     if i == 0:
-#                         lowres_img = torch.nn.functional.interpolate(lowres_img, (10, 10))
-#                         lowres_img = torch.nn.functional.interpolate(lowres_img, (args.size, args.size))
+        #                   lowres_img = torch.nn.functional.interpolate(lowres_img, (10, 10))
+        #                   lowres_img = torch.nn.functional.interpolate(lowres_img, (args.size, args.size))
                         utils.save_image(
                             lowres_img,
                             os.path.join(
@@ -317,12 +317,12 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                         path,
                         f'outputs/{args.output_dir}/checkpoints/{str(i).zfill(6)}.pt'),
                 )
-#             if i % (args.save_checkpoint_frequency*10) == 0 and i > 0:
-#                 cur_metrics = calculate_fid(g_ema, fid_dataset=fid_dataset, bs=args.fid_batch, size=args.coords_size,
-#                                             num_batches=args.fid_samples//args.fid_batch, latent_size=args.latent,
-#                                             save_dir=args.path_fid, integer_values=args.coords_integer_values)
-#                 writer.add_scalar("fid", cur_metrics['frechet_inception_distance'], i)
-#                 print(i, "fid",  cur_metrics['frechet_inception_distance'])
+        #       if i % (args.save_checkpoint_frequency*10) == 0 and i > 0:
+        #           cur_metrics = calculate_fid(g_ema, fid_dataset=fid_dataset, bs=args.fid_batch, size=args.coords_size,
+        #                                       num_batches=args.fid_samples//args.fid_batch, latent_size=args.latent,
+        #                                       save_dir=args.path_fid, integer_values=args.coords_integer_values)
+        #           writer.add_scalar("fid", cur_metrics['frechet_inception_distance'], i)
+        #           print(i, "fid",  cur_metrics['frechet_inception_distance'])
 
 
 if __name__ == '__main__':
@@ -482,12 +482,12 @@ if __name__ == '__main__':
             broadcast_buffers=False,
         )
 
-#         encoder = nn.parallel.DistributedDataParallel(
-#             encoder,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
+        #   encoder = nn.parallel.DistributedDataParallel(
+        #       encoder,
+        #       device_ids=[args.local_rank],
+        #       output_device=args.local_rank,
+        #       broadcast_buffers=False,
+        #   )
 
     enc_transform = transforms.Compose(
         [
@@ -509,10 +509,10 @@ if __name__ == '__main__':
         ]
     )
     # transform_fid = transforms.Compose([
-    #                                    transforms.ToTensor(),
-    #                                    transforms.Lambda(lambda x: x.mul_(255.).byte())])
+            #                              transforms.ToTensor(),
+            #                              transforms.Lambda(lambda x: x.mul_(255.).byte())])
     # dataset = MultiScaleDataset(args.path, transform=transform, resolution=args.coords_size, crop_size=args.crop,
-    #                             integer_values=args.coords_integer_values, to_crop=args.to_crop)
+            #                       integer_values=args.coords_integer_values, to_crop=args.to_crop)
     dataset = FMoWSentinel2(args.path, transform=transform, enc_transform=enc_transform,
                                     resolution=args.coords_size, integer_values=args.coords_integer_values)
     testset = FMoWSentinel2(args.test_path, transform=transform, enc_transform=enc_transform,

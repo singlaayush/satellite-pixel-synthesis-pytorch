@@ -1,7 +1,7 @@
 from io import BytesIO
 import math
 
-import lmdb
+# import lmdb
 from PIL import Image
 from torch.utils.data import Dataset
 import torch
@@ -12,62 +12,85 @@ import pandas as pd
 
 
 class Naip2SentinelTDataset(Dataset):
-    def __init__(self, csv_path, transform, enc_transform, resolution, integer_values):
+    def __init__(self, csv_path, transform, enc_transform, resolution, integer_values, data_path=""):
         """
         Args:
             csv_path (string): path to csv file
-            img_path (string): path to the folder where images are
             transform: pytorch transforms for transforms and tensor conversion
+            data_path (str): absolute parent path for imagery (must end with / unless "")
         """
         self.integer_values = integer_values
+        
         # Transforms
         self.transform = transform
         self.enc_transform = enc_transform
+        
         # Read the csv file
         self.data_info = pd.read_csv(csv_path, header=0)
+        
+        # store absolute parent path
+        self.parent_path = data_path
+        
         # column 1-4 contain the image paths
         self.naip2016 = np.asarray(self.data_info.iloc[:, 1])
         self.naip2018 = np.asarray(self.data_info.iloc[:, 2])
         self.naip = np.concatenate((self.naip2016, self.naip2018))
+        
         self.sentinel2016 = np.asarray(self.data_info.iloc[:, 3])
         self.sentinel2018 = np.asarray(self.data_info.iloc[:, 4])
         self.sentinel = np.concatenate((self.sentinel2016, self.sentinel2018))
+        
         # Calculate len
         data_len = len(self.data_info.index)
         self.house_count = data_len
+        
+        # 0 -> earlier year; 1 -> later year
         self.time = np.concatenate((np.array([0]*data_len),np.array([1]*data_len)))
+        
         self.data_len = len(self.sentinel)
         self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
+        
         # self.crop = tt.RandomCrop(resolution)
-#         print(self.naip.shape, self.sentinel.shape, self.time.shape)
+        # print(self.naip.shape, self.sentinel.shape, self.time.shape)
 
     def __getitem__(self, index):
         # Get image name from the pandas df
         naip = self.naip[index]
         sentinel = self.sentinel[index]
+        
+        # find which year's imagery we're looking for (earlier vs later)
         t = self.time[index]
         if t == 1:
             naip2 = self.naip[index-self.house_count]
         else:
             naip2 = self.naip[index+self.house_count]
+        
+        # Append parent path to get absolute path
+        naip     = self.parent_path + naip
+        naip2    = self.parent_path + naip2
+        sentinel = self.parent_path + sentinel
+        
         # Open image
-        naip = Image.open(naip).convert('RGB')
-        naip2 = Image.open(naip2).convert('RGB')
+        naip     = Image.open(naip).convert('RGB')
+        naip2    = Image.open(naip2).convert('RGB')
         sentinel = Image.open(sentinel).convert('RGB')
-#         im1 = naip.save("naip.jpg")
-#         im2 = sentinel.save("sentinel.jpg")
+        
+        # im1 = naip.save("naip.jpg")
+        # im2 = sentinel.save("sentinel.jpg")
+        
         # Transform the image
-        naip = self.transform(naip)
-        naip2 = self.enc_transform(naip2)
+        naip     = self.transform(naip)
+        naip2    = self.enc_transform(naip2)
         sentinel = self.enc_transform(sentinel)
-#         print(naip.shape, self.coords[t].shape)
-#         naip = torch.cat([naip, self.coords[t]], 1).squeeze(0)
+        
+        # print(naip.shape, self.coords[t].shape)
+        # naip = torch.cat([naip, self.coords[t]], 1).squeeze(0)
         naip = torch.cat([naip, self.coords[t]], 0)
 
         # naip = self.crop(sentinel.unsqueeze(0)).squeeze(0)
         # sentinel = self.crop(sentinel.unsqueeze(0)).squeeze(0)
 
-#         print(naip.shape, sentinel.shape)
+        # print(naip.shape, sentinel.shape)
 
         return (naip, sentinel, naip2)
 
@@ -103,7 +126,7 @@ class Naip2SentinelTPath(Dataset):
         self.data_len = len(self.sentinel)
         self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
         # self.crop = tt.RandomCrop(resolution)
-#         print(self.naip.shape, self.sentinel.shape, self.time.shape)
+        # print(self.naip.shape, self.sentinel.shape, self.time.shape)
 
     def __getitem__(self, index):
         # Get image name from the pandas df
@@ -134,11 +157,11 @@ class PatchNSTDataset(Dataset):
     def __init__(self, csv_path, transform, enc_transform, resolution=256, crop_size=64, integer_values=False):
         #crop for better fitting into the memory
         self.crop_size = crop_size
-#         self.n = resolution // crop_size
-#         self.log_size = int(math.log(self.n, 2))
+        # self.n = resolution // crop_size
+        # self.log_size = int(math.log(self.n, 2))
         self.crop = tt.RandomCropDim3(crop_size)
-#         self.crop_resolution = tt.RandomCrop(resolution)
-#         self.to_crop = to_crop
+        # self.crop_resolution = tt.RandomCrop(resolution)
+        # self.to_crop = to_crop
         self.resolution = resolution
 
         self.integer_values = integer_values
@@ -182,12 +205,12 @@ class PatchNSTDataset(Dataset):
         naip2 = self.enc_transform(naip2)
         sentinel = self.enc_transform(sentinel)
         naip = torch.cat([naip, self.coords[t]], 0)
-#         print(naip.shape)
+        # print(naip.shape)
 
         naip, h_start, w_start = self.crop(naip)
         naip2 = tt.patch_crop_dim3(naip2, h_start, w_start, self.crop_size)
         sentinel = tt.patch_crop_dim3(sentinel, h_start, w_start, self.crop_size)
-#         print(naip.shape)
+        # print(naip.shape)
 
         return (naip, sentinel, naip2, h_start, w_start)
 
@@ -240,7 +263,7 @@ class MSNSTDataset(Dataset):
         naip2 = self.enc_transform(naip2)
         sentinel = self.enc_transform(sentinel)
         naip = torch.cat([naip, self.coords[t]], 0)
-#         print(naip.shape)
+        # print(naip.shape)
 
         for i in range(self.n):
             for j in range(self.n):
@@ -302,7 +325,7 @@ class MSNSTPDataset(Dataset):
         naip2_img.close()
         sentinel_img.close()
         naip = torch.cat([naip, self.coords[t]], 0)
-#         print(naip.shape)
+        # print(naip.shape)
 
         for i in range(self.n):
             for j in range(self.n):
@@ -357,32 +380,32 @@ class FMoWSentinel2(Dataset):
         data_len = len(self.data_info.index)
         self.house_count = data_len
         self.data_len = len(self.low)
-#         self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
+        # self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
         # self.crop = tt.RandomCrop(resolution)
-#         print(self.naip.shape, self.sentinel.shape, self.time.shape)
+        # print(self.naip.shape, self.sentinel.shape, self.time.shape)
 
 #     def get_sinusoid_encoding_table(positions, d_hid, T=1000):
-#         ''' Sinusoid position encoding table
-#         positions: int or list of integer, if int range(positions)'''
+        # ''' Sinusoid position encoding table
+        # positions: int or list of integer, if int range(positions)'''
 
-#         if isinstance(positions, int):
-#             positions = list(range(positions))
+        # if isinstance(positions, int):
+        #     positions = list(range(positions))
 
-#         def cal_angle(position, hid_idx):
-#             return position / np.power(T, 2 * (hid_idx // 2) / d_hid)
+        # def cal_angle(position, hid_idx):
+        #     return position / np.power(T, 2 * (hid_idx // 2) / d_hid)
 
-#         def get_posi_angle_vec(position):
-#             return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
+        # def get_posi_angle_vec(position):
+        #     return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
 
-#         sinusoid_table = np.array([get_posi_angle_vec(pos_i) for pos_i in positions])
+        # sinusoid_table = np.array([get_posi_angle_vec(pos_i) for pos_i in positions])
 
-#         sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
-#         sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
+        # sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
+        # sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
 
-#         if torch.cuda.is_available():
-#             return torch.FloatTensor(sinusoid_table).cuda()
-#         else:
-#             return torch.FloatTensor(sinusoid_table)
+        # if torch.cuda.is_available():
+        #     return torch.FloatTensor(sinusoid_table).cuda()
+        # else:
+        #     return torch.FloatTensor(sinusoid_table)
 
     def __getitem__(self, index):
         # Get image name from the pandas df
@@ -404,7 +427,7 @@ class FMoWSentinel2(Dataset):
         high2 = self.transform(high2)
         low = self.enc_transform(low)
         coords = tt.convert_to_coord_uneven_t(1, self.resolution, self.resolution, t, integer_values=self.integer_values)
-#         print(coords)
+        # print(coords)
         high = torch.cat([high, coords], 0)
 
         return (high, low, high2)
@@ -444,9 +467,9 @@ class FMoWSentinel2Path(Dataset):
         data_len = len(self.data_info.index)
         self.house_count = data_len
         self.data_len = len(self.low)
-#         self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
+        # self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
         # self.crop = tt.RandomCrop(resolution)
-#         print(self.naip.shape, self.sentinel.shape, self.time.shape)
+        # print(self.naip.shape, self.sentinel.shape, self.time.shape)
 
     def __getitem__(self, index):
         # Get image name from the pandas df
@@ -469,7 +492,7 @@ class FMoWSentinel2Path(Dataset):
         high2 = self.transform(high2)
         low = self.enc_transform(low)
         coords = tt.convert_to_coord_uneven_t(1, self.resolution, self.resolution, t, integer_values=self.integer_values)
-#         print(coords)
+        # print(coords)
         high = torch.cat([high, coords], 0)
 
         return (high, low, high2, path)
@@ -511,32 +534,32 @@ class FMoWSentinelPatch(Dataset):
         data_len = len(self.data_info.index)
         self.house_count = data_len
         self.data_len = len(self.low)
-#         self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
+        # self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
         # self.crop = tt.RandomCrop(resolution)
-#         print(self.naip.shape, self.sentinel.shape, self.time.shape)
+        # print(self.naip.shape, self.sentinel.shape, self.time.shape)
 
 #     def get_sinusoid_encoding_table(positions, d_hid, T=1000):
-#         ''' Sinusoid position encoding table
-#         positions: int or list of integer, if int range(positions)'''
+        # ''' Sinusoid position encoding table
+        # positions: int or list of integer, if int range(positions)'''
 
-#         if isinstance(positions, int):
-#             positions = list(range(positions))
+        # if isinstance(positions, int):
+        #     positions = list(range(positions))
 
-#         def cal_angle(position, hid_idx):
-#             return position / np.power(T, 2 * (hid_idx // 2) / d_hid)
+        # def cal_angle(position, hid_idx):
+        #     return position / np.power(T, 2 * (hid_idx // 2) / d_hid)
 
-#         def get_posi_angle_vec(position):
-#             return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
+        # def get_posi_angle_vec(position):
+        #     return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
 
-#         sinusoid_table = np.array([get_posi_angle_vec(pos_i) for pos_i in positions])
+        # sinusoid_table = np.array([get_posi_angle_vec(pos_i) for pos_i in positions])
 
-#         sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
-#         sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
+        # sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
+        # sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
 
-#         if torch.cuda.is_available():
-#             return torch.FloatTensor(sinusoid_table).cuda()
-#         else:
-#             return torch.FloatTensor(sinusoid_table)
+        # if torch.cuda.is_available():
+        #     return torch.FloatTensor(sinusoid_table).cuda()
+        # else:
+        #     return torch.FloatTensor(sinusoid_table)
 
     def __getitem__(self, index):
         # Get image name from the pandas df
@@ -547,8 +570,8 @@ class FMoWSentinelPatch(Dataset):
             high2 = self.high[index-self.house_count]
         else:
             high2 = self.highpresent[index]
-#         if index == 0:
-#             print(high, high2)
+        # if index == 0:
+        #     print(high, high2)
         # Open image
         high = Image.open(high).convert('RGB')
         high2 = Image.open(high2).convert('RGB')
@@ -558,7 +581,7 @@ class FMoWSentinelPatch(Dataset):
         high2 = self.transform(high2)
         low = self.enc_transform(low)
         coords = tt.convert_to_coord_uneven_t(1, self.resolution, self.resolution, t, integer_values=self.integer_values)
-#         print(coords)
+        # print(coords)
         high = torch.cat([high, coords], 0)
 
         high, h_start, w_start = self.crop(high)
@@ -604,9 +627,9 @@ class FSAllPatch(Dataset):
         data_len = len(self.data_info.index)
         self.house_count = data_len
         self.data_len = len(self.low)
-#         self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
+        # self.coords = tt.convert_to_coord_with_t(1, resolution, resolution, [0,1], integer_values=self.integer_values)
         # self.crop = tt.RandomCrop(resolution)
-#         print(self.naip.shape, self.sentinel.shape, self.time.shape)
+        # print(self.naip.shape, self.sentinel.shape, self.time.shape)
 
     def __getitem__(self, index):
         # Get image name from the pandas df
@@ -619,8 +642,8 @@ class FSAllPatch(Dataset):
             high2 = self.high[index-self.house_count]
         else:
             high2 = self.highpresent[index]
-#         if index == 0:
-#             print(high, high2)
+        # if index == 0:
+        #     print(high, high2)
         # Open image
         high = Image.open(high).convert('RGB')
         high2 = Image.open(high2).convert('RGB')
@@ -630,7 +653,7 @@ class FSAllPatch(Dataset):
         high2 = self.transform(high2)
         low = self.enc_transform(low)
         coords = tt.convert_to_coord_uneven_t(1, self.resolution, self.resolution, t, integer_values=self.integer_values)
-#         print(coords)
+        # print(coords)
         high = torch.cat([high, coords], 0)
 
         for i in range(self.n):
