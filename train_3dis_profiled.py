@@ -79,8 +79,6 @@ def g_nonsaturating_loss(fake_pred):
 
 def g_rec_loss(fake, real):
     loss = F.l1_loss(fake, real)
-#     loss = F.mse_loss(fake, real, reduction='sum') / fake.size(0)
-
     return loss
 
 
@@ -101,8 +99,7 @@ def mixing_noise(batch, latent_dim, prob, device):
         return [make_noise(batch, latent_dim, 1, device)]
 
 
-def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_data, device):
-#     requires_grad(encoder, False)
+def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_data, device, is_distributed):    
     loader = sample_data(loader)
 
     ssim = SSIM()
@@ -133,32 +130,32 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
 
     sample_z = torch.randn(args.n_sample, args.latent, device=device)
 
+    timings = {}
+    
     for idx in pbar:
         i = idx + args.start_iter
 
         if i > args.iter:
             print('Done!')
-
             break
+        
+        
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
 
-        # data = next(loader)
-        # key = np.random.randint(n_scales)
-        # real_stack = data[key].to(device)
         highres, lowres_img, highres_img2 = next(loader)
         highres = highres.to(device)
         lowres_img = lowres_img.to(device)
         highres_img2 = highres_img2.to(device)
 
         real_img, converted = highres[:, :3], highres[:, 3:]
-
+        
         # Training Discriminator
         requires_grad(generator, False)
         requires_grad(discriminator, True)
 
         noise = mixing_noise(args.batch, args.latent, args.mixing, device)
-#         lowres_embedding = encoder(lowres_img).squeeze()
-#         highres2_embedding = encoder(highres_img2).squeeze()
-#         print(lowres_embedding.shape)
 
         fake_img, _ = generator(converted, lowres_img, highres_img2, noise)
         fake = fake_img if args.img2dis else torch.cat([fake_img, converted], 1)
@@ -192,6 +189,15 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
 
         loss_dict['r1'] = r1_loss
 
+        end.record()
+        synchronize() if is_distributed else torch.cuda.synchronize()
+        if get_rank() == 0:
+            timings["disc"] = f"{(start.elapsed_time(end) / 1000):.1f} s"
+        
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
+        
         # Training Generator
         requires_grad(generator, True)
         requires_grad(discriminator, False)
@@ -220,6 +226,15 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
 
         loss_dict['path'] = path_loss
         loss_dict['path_length'] = path_lengths.mean()
+        
+        end.record()
+        synchronize() if is_distributed else torch.cuda.synchronize()
+        if get_rank() == 0:
+            timings["gen"] = f"{(start.elapsed_time(end) / 1000):.1f} s"
+        
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
 
         accumulate(g_ema, g_module, accum)
 
@@ -235,13 +250,12 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
         real_score_val = loss_reduced['real_score'].mean().item()
         fake_score_val = loss_reduced['fake_score'].mean().item()
         path_length_val = loss_reduced['path_length'].mean().item()
+        
+        end.record()
+        synchronize() if is_distributed else torch.cuda.synchronize()
 
         if get_rank() == 0:
-            pbar.set_description(
-                (
-                    f'd: {d_loss_val:.4f}; g: {g_loss_val:.4f}; r1: {r1_val:.4f}; rec: {g_rec_loss_val:.4f}; ssim: {g_ssim_loss_val:.4f};'
-                )
-            )
+            timings["accum"] = f"{(start.elapsed_time(end) / 1000):.1f} s"
 
             if i % 10 == 0:
                 writer.add_scalar("Generator", g_loss_val, i)
@@ -256,6 +270,9 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                 writer.add_scalar("Path Length", path_length_val, i)
 
             if i % 100 == 0:
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                start.record()
                 with torch.no_grad():
                     g_ema.eval()
 
@@ -277,8 +294,6 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                     )
 
                     if i == 0:
-#                         lowres_img = torch.nn.functional.interpolate(lowres_img, (10, 10))
-#                         lowres_img = torch.nn.functional.interpolate(lowres_img, (args.size, args.size))
                         utils.save_image(
                             lowres_img,
                             os.path.join(
@@ -308,8 +323,13 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                             normalize=True,
                             value_range=(-1, 1),
                         )
+                end.record()
+                timings["img_gen"] = f"{(start.elapsed_time(end) / 1000):.1f} s"
 
             if i % args.save_checkpoint_frequency == 0:
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                start.record()
                 torch.save(
                     {
                         'g': g_module.state_dict(),
@@ -322,13 +342,16 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                         path,
                         f'outputs/{args.output_dir}/checkpoints/{str(i).zfill(6)}.pt'),
                 )
-#             if i % (args.save_checkpoint_frequency*10) == 0 and i > 0:
-#                 cur_metrics = calculate_fid(g_ema, fid_dataset=fid_dataset, bs=args.fid_batch, size=args.coords_size,
-#                                             num_batches=args.fid_samples//args.fid_batch, latent_size=args.latent,
-#                                             save_dir=args.path_fid, integer_values=args.coords_integer_values)
-#                 writer.add_scalar("fid", cur_metrics['frechet_inception_distance'], i)
-#                 print(i, "fid",  cur_metrics['frechet_inception_distance'])
-
+                end.record()
+                timings["ckpt"] = f"{(start.elapsed_time(end) / 1000):.1f} s"
+            
+            # description = f'd: {d_loss_val:.4f}; g: {g_loss_val:.4f}; r1: {r1_val:.4f}; rec: {g_rec_loss_val:.4f}; ssim: {g_ssim_loss_val:.4f}; '
+            description = "; ".join([f"{k}: {v}" for k, v in timings.items()])
+            pbar.set_description(
+                (
+                    description
+                )
+            )
 
 if __name__ == '__main__':
     device = 'cuda'
@@ -388,6 +411,11 @@ if __name__ == '__main__':
     path = args.out_path
     
     local_rank = int(os.environ["LOCAL_RANK"])
+    
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    
+    start.record()
 
     Generator = getattr(model, args.Generator)
     print('Generator', Generator)
@@ -410,8 +438,6 @@ if __name__ == '__main__':
         torch.cuda.set_device(local_rank)
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
         synchronize()
-
-    #  args.n_mlp = 3
     
     args.dis_input_size = 9 if args.img2dis else 12
     print('img2dis', args.img2dis, 'dis_input_size', args.dis_input_size)
@@ -438,10 +464,6 @@ if __name__ == '__main__':
 
     g_reg_ratio = args.g_reg_every / (args.g_reg_every + 1)
     d_reg_ratio = args.d_reg_every / (args.d_reg_every + 1)
-
-    #  resnet18 = models.resnet18(pretrained=True).to(device)
-    #  modules = list(resnet18.children())[:-1]
-    #  encoder = nn.Sequential(*modules)
 
     g_optim = optim.Adam(
         generator.parameters(),
@@ -490,18 +512,17 @@ if __name__ == '__main__':
             broadcast_buffers=False,
         )
 
-    # encoder = nn.parallel.DistributedDataParallel(
-    #     encoder,
-    #     device_ids=[local_rank],
-    #     output_device=local_rank,
-    #     broadcast_buffers=False,
-    # )
+    end.record()
+    synchronize() if args.distributed else torch.cuda.synchronize()
+    if get_rank() == 0:
+        print(f"main() – Loaded Models in {(start.elapsed_time(end) / 1000):.4f} seconds")
+    
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    start.record()
 
     enc_transform = transforms.Compose(
         [
-            # transforms.Resize(256),
-            # transforms.ToTensor(),
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
             transforms.Resize(256),
             transforms.CenterCrop(256),
             transforms.ToTensor(),
@@ -517,19 +538,10 @@ if __name__ == '__main__':
         ]
     )
     
-    # transform_fid = transforms.Compose([
-    #                                    transforms.ToTensor(),
-    #                                    transforms.Lambda(lambda x: x.mul_(255.).byte())])
-    # dataset = MultiScaleDataset(args.path, transform=transform, resolution=args.coords_size, crop_size=args.crop,
-    #                             integer_values=args.coords_integer_values, to_crop=args.to_crop)
-    
     dataset = Naip2SentinelTDataset(args.path, transform=transform, enc_transform=enc_transform,
                                     resolution=args.coords_size, integer_values=args.coords_integer_values, data_path=args.data_path)
     testset = Naip2SentinelTDataset(args.test_path, transform=transform, enc_transform=enc_transform,
                                     resolution=args.coords_size, integer_values=args.coords_integer_values, data_path=args.data_path)
-    
-    # fid_dataset = ImageDataset(args.path, transform=transform_fid, resolution=args.coords_size, to_crop=args.to_crop)
-    # fid_dataset.length = args.fid_samples
     
     loader = data.DataLoader(
         dataset,
@@ -552,8 +564,12 @@ if __name__ == '__main__':
     test_data = iter(test_loader).next()
     del testset
     del test_loader
-    # print(test_data[0].shape)
+    
+    end.record()
+    synchronize() if args.distributed else torch.cuda.synchronize()
+    if get_rank() == 0:
+        print(f"main() – created Dataloader in {(start.elapsed_time(end) / 1000):.4f} seconds")
 
     writer = SummaryWriter(log_dir=args.logdir)
 
-    train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_data, device)
+    train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_data, device, args.distributed)
