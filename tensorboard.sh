@@ -8,4 +8,4 @@
 #SBATCH --mem-per-cpu=2G
 
 export XDG_RUNTIME_DIR=""
-tensorboard --logdir=/deep/group/aicc-bootcamp/transportation/models/generative/texas/tensorboard --port=8881 --host='0.0.0.0'
+tensorboard --logdir=/deep/group/aicc-bootcamp/transportation/models/generative/naip-dvrpc-10-15/tensorboard --port=8881 --host='0.0.0.0'
