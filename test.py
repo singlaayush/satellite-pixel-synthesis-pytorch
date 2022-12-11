@@ -1,29 +1,33 @@
 import argparse
 import math
-import random
 import os
-import pandas as pd
-from PIL import Image
+import random
 
 import numpy as np
 import torch
 import torch.multiprocessing
-torch.multiprocessing.set_sharing_strategy('file_system')
-from torch import nn, autograd, optim
-from torch.nn import functional as F
 from torch.utils import data
-import torch.distributed as dist
 from torchvision import transforms, utils
-# from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 import model
-from dataset import Naip2SentinelTDataset, Naip2SentinelTPath, MSNSTPDataset
+from dataset import MSNSTPDataset, Naip2SentinelTPath
+from distributed import get_rank
+
+# import pandas as pd
+# from PIL import Image
+# from torch.nn import functional as F
+# import torch.distributed as dist
+# import torchvision.models as models
 # from calculate_fid import calculate_fid
-from distributed import get_rank, synchronize, reduce_loss_dict
-from tensor_transforms import convert_to_coord_format
-import torchvision.models as models
-import tensor_transforms as tt
+# from torch import autograd, nn, optim
+# from torch.utils.tensorboard import SummaryWriter
+# import tensor_transforms as tt
+# from dataset import Naip2SentinelTDataset
+# from distributed import reduce_loss_dict, synchronize
+# from tensor_transforms import convert_to_coord_format
 
 random.seed(0)
 np.random.seed(0)
@@ -118,15 +122,14 @@ def test_loader(args, g_ema, device):
 
     if get_rank() == 0:
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
-
-#     if args.distributed:
-#         g_module = generator.module
-#         d_module = discriminator.module
-
-#     else:
-#         g_module = generator
-#         d_module = discriminator
-
+    """
+    if args.distributed:
+        g_module = generator.module
+        d_module = discriminator.module
+    else:
+        g_module = generator
+        d_module = discriminator
+    """
     with torch.no_grad():
         g_ema.eval()
 
@@ -186,15 +189,14 @@ def test_patch_loader(args, g_ema, device):
 
     if get_rank() == 0:
         pbar = tqdm(pbar, initial=args.start_iter, dynamic_ncols=True, smoothing=0.01)
-
-#     if args.distributed:
-#         g_module = generator.module
-#         d_module = discriminator.module
-
-#     else:
-#         g_module = generator
-#         d_module = discriminator
-
+    """
+    if args.distributed:
+        g_module = generator.module
+        d_module = discriminator.module
+    else:
+        g_module = generator
+        d_module = discriminator
+    """
     with torch.no_grad():
         g_ema.eval()
 
@@ -231,7 +233,7 @@ def test_patch_loader(args, g_ema, device):
                     sample_patches[patch_index] = sample
 
                 sample = stack_sliding_patches(sample_patches, 1, args.coords_size, args.crop_size)
-    #             sample = stack_patches(sample_patches, 1, args.coords_size, args.crop_size)
+                # sample = stack_patches(sample_patches, 1, args.coords_size, args.crop_size)
 
                 utils.save_image(
                     sample,
@@ -295,14 +297,17 @@ if __name__ == '__main__':
     n_gpu = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     args.distributed = n_gpu > 1
     print("Using:", n_gpu, "GPUs")
+    
+    """
+    if args.distributed:
+        print("Parallelized")
+        torch.cuda.set_device(args.local_rank)
+        torch.distributed.init_process_group(backend='nccl', init_method='env://')
+        synchronize()
 
-#     if args.distributed:
-#         print("Parallelized")
-#         torch.cuda.set_device(args.local_rank)
-#         torch.distributed.init_process_group(backend='nccl', init_method='env://')
-#         synchronize()
-
-#     args.n_mlp = 1
+    args.n_mlp = 1
+    """
+    
     args.dis_input_size = 9 if args.img2dis else 12
     print('img2dis', args.img2dis, 'dis_input_size', args.dis_input_size)
 
@@ -319,36 +324,35 @@ if __name__ == '__main__':
 
         ckpt = torch.load(args.ckpt)
 
-#         generator.load_state_dict(ckpt['g'])
-#         discriminator.load_state_dict(ckpt['d'])
+        # generator.load_state_dict(ckpt['g'])
+        # discriminator.load_state_dict(ckpt['d'])
         g_ema.load_state_dict(ckpt['g_ema'])
 
         del ckpt
         torch.cuda.empty_cache()
     else:
         raise Exception("You need to include a checkpoint file for your model")
+    """
+    if args.distributed:
+        generator = nn.parallel.DistributedDataParallel(
+            generator,
+            device_ids=[args.local_rank],
+            output_device=args.local_rank,
+            broadcast_buffers=False,
+        )
+        discriminator = nn.parallel.DistributedDataParallel(
+            discriminator,
+            device_ids=[args.local_rank],
+            output_device=args.local_rank,
+            broadcast_buffers=False,
+        )
 
-#     if args.distributed:
-#         generator = nn.parallel.DistributedDataParallel(
-#             generator,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
-
-#         discriminator = nn.parallel.DistributedDataParallel(
-#             discriminator,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
-#
-#         encoder = nn.parallel.DistributedDataParallel(
-#             encoder,
-#             device_ids=[args.local_rank],
-#             output_device=args.local_rank,
-#             broadcast_buffers=False,
-#         )
-
-# test_loader(args, g_ema, device)
-# test_patch_loader(args, g_ema, device)
+        encoder = nn.parallel.DistributedDataParallel(
+            encoder,
+            device_ids=[args.local_rank],
+            output_device=args.local_rank,
+            broadcast_buffers=False,
+        )
+    """
+    test_loader(args, g_ema, device)
+    test_patch_loader(args, g_ema, device)

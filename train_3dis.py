@@ -359,7 +359,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch', type=int, default=4)
     parser.add_argument('--num_workers', type=int, default=16)
     parser.add_argument('--to_crop', action='store_true')
-    parser.add_argument('--crop', type=int, default=256)
+    parser.add_argument('--crop', type=int, default=256)  # also defines disriminator size
     parser.add_argument('--coords_size', type=int, default=256)
     parser.add_argument('--enc_res', type=int, default=224)
 
@@ -383,6 +383,7 @@ if __name__ == '__main__':
     parser.add_argument('--r1', type=float, default=10)
     parser.add_argument('--img2dis',  action='store_true')
     parser.add_argument('--n_first_layers', type=int, default=0)
+    parser.add_argument('--capacity_multiplier', type=int, default=1)  # added to increase discriminator capacity
 
     args = parser.parse_args()
     path = args.out_path
@@ -426,7 +427,7 @@ if __name__ == '__main__':
     print('generator N params', sum(p.numel() for p in generator.parameters() if p.requires_grad))
     
     discriminator = Discriminator(
-        size=args.crop, channel_multiplier=args.channel_multiplier, n_scales=n_scales, input_size=args.dis_input_size,
+        size=args.crop, channel_multiplier=(args.channel_multiplier * args.capacity_multiplier), n_scales=n_scales, input_size=args.dis_input_size,
         n_first_layers=args.n_first_layers,
     ).to(device)
     
@@ -502,7 +503,7 @@ if __name__ == '__main__':
             # transforms.Resize(256),
             # transforms.ToTensor(),
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
-            transforms.Resize(256),
+            transforms.Resize(500),
             transforms.CenterCrop(256),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
@@ -510,7 +511,7 @@ if __name__ == '__main__':
     )
     transform = transforms.Compose(
         [
-            transforms.Resize(256),
+            # transforms.Resize(256),
             transforms.CenterCrop(256),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),

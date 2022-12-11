@@ -32,10 +32,11 @@ class Naip2SentinelTDataset(Dataset):
         self.parent_path = data_path
         
         # column 1-4 contain the image paths
+        # here, naip -> hi-res, sentinel -> low-res
         self.naip2016 = np.asarray(self.data_info.iloc[:, 1])
         self.naip2018 = np.asarray(self.data_info.iloc[:, 2])
         self.naip = np.concatenate((self.naip2016, self.naip2018))
-        
+
         self.sentinel2016 = np.asarray(self.data_info.iloc[:, 3])
         self.sentinel2018 = np.asarray(self.data_info.iloc[:, 4])
         self.sentinel = np.concatenate((self.sentinel2016, self.sentinel2018))
@@ -75,15 +76,16 @@ class Naip2SentinelTDataset(Dataset):
         naip2    = Image.open(naip2).convert('RGB')
         sentinel = Image.open(sentinel).convert('RGB')
         
+        
         # im1 = naip.save("naip.jpg")
         # im2 = sentinel.save("sentinel.jpg")
         
         # Transform the image
         naip     = self.transform(naip)
-        naip2    = self.enc_transform(naip2)
+        naip2    = self.transform(naip2)
         sentinel = self.enc_transform(sentinel)
         
-        # print(naip.shape, self.coords[t].shape)
+        # print(naip.shape, '\n', self.coords[t].shape)
         # naip = torch.cat([naip, self.coords[t]], 1).squeeze(0)
         naip = torch.cat([naip, self.coords[t]], 0)
 

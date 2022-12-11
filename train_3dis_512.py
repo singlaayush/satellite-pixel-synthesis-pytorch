@@ -163,6 +163,7 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
         fake_img, _ = generator(converted, lowres_img, highres_img2, noise)
         fake = fake_img if args.img2dis else torch.cat([fake_img, converted], 1)
         fake_input_d = torch.cat((fake, lowres_img, highres_img2), 1)
+        print(f'fake_input_d: {fake_input_d.shape}')
         fake_pred = discriminator(fake_input_d)
 
         real = real_img if args.img2dis else highres
@@ -367,9 +368,9 @@ if __name__ == '__main__':
     parser.add_argument('--Generator', type=str, default='CIPSAtt')
     parser.add_argument('--coords_integer_values', action='store_true')
     parser.add_argument('--size', type=int, default=512)
-    parser.add_argument('--fc_dim', type=int, default=512)
-    parser.add_argument('--latent', type=int, default=512)
-    parser.add_argument('--linear_dim', type=int, default=512)
+    parser.add_argument('--fc_dim', type=int, default=256)
+    parser.add_argument('--latent', type=int, default=256)
+    parser.add_argument('--linear_dim', type=int, default=256)
     parser.add_argument('--activation', type=str, default=None)
     parser.add_argument('--channel_multiplier', type=int, default=2)
     parser.add_argument('--mixing', type=float, default=0.)

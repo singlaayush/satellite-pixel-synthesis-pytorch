@@ -1,3 +1,3 @@
 source ~/.bashrc
 conda activate transportation
-sbatch sbatch_train_naip_512.sh
+sbatch scripts/sbatch_train_naip_512.sh
