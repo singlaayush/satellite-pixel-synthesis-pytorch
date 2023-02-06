@@ -3,3 +3,8 @@ __ymls__/
 cache/
 *.yml
 *.log
+*events.out.tfevents*
+.ipynb_checkpoints/
+diff_images/
+lightning_logs/
+*.graphml

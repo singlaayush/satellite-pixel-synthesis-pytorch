@@ -1,8 +1,8 @@
 #!/bin/sh
 #SBATCH --account=deep
 #SBATCH --partition=deep
-#SBATCH --time=24:00:00               # Time limit hrs:min:sec
-#SBATCH --output=/deep/u/ayushsn/satellite-pixel-synthesis-pytorch/logs/cleanup-debug-%A.log   # Standard output and error log
+#SBATCH --time=28:00:00               # Time limit hrs:min:sec
+#SBATCH --output=/deep/u/ayushsn/satellite-pixel-synthesis-pytorch/logs/cleanup-2000-%A.log   # Standard output and error log
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=32000
 

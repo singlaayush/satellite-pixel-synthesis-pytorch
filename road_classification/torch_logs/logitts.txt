@@ -1,0 +1,19 @@
+apply_filtering                                                                                                                                                                                                                      
+y tensor([0, 0, 1, 0, 0, 1, 0, 0], device='cuda:0')                                                                                                                                                                                  
+y_hat tensor([[ 0.0268],                                                                                                                                                                                                             
+        [-0.0095],                                                                                                                                                                                                                   
+        [ 0.0826],                                                                                                                                                                                                                   
+        [ 0.1750],                                                                                                                                                                                                                   
+        [ 0.0767],                                                                                                                                                                                                                   
+        [ 0.0792],                                                                                                                                                                                                                   
+        [-0.0245],                                                                                                                                                                                                                   
+        [-0.0190]], device='cuda:0')                                                                                                                                                                                                 
+to_metrics_format                                                                                                                                                                                                                    
+pre-argmax tensor([[1.],                                                                                                                                                                                                             
+        [1.],                                                                                                                                                                                                                        
+        [1.],                                                                                                                                                                                                                        
+        [1.],                                                                                                                                                                                                                        
+        [1.],
+        [1.],
+        [1.],
+        [1.]], device='cuda:0')

@@ -9,6 +9,11 @@ from pathlib import Path
 from tqdm import tqdm
 import time
 
+train = pd.read_csv("/deep/group/aicc-bootcamp/transportation/data/fusion/train.csv", header=0)
+train = train.truncate(before=0, after=2000)
+image_paths = np.asarray(train.iloc[:, 1])
+print("Loaded Image Paths...")
+
 start_time = time.time()
 dvrpc_boundary_gpd = gpd.read_file("/deep/u/ayushsn/aicc-spr22-transportation/preprocess/util_scripts/dvrpc_boundary.shp")
 dvrpc_boundary = dvrpc_boundary_gpd.geometry[0]
@@ -22,13 +27,12 @@ print(f"Time OSMNX stuff took: {(end_time - start_time) / 60} minutes")
 #gdf = gpd.read_file("/deep/u/ayushsn/satellite-pixel-synthesis-pytorch/preprocess/dvrpc_osm_G.gpkg", layer='edges')
 #unioned = gdf.unary_union
 
-# train = pd.read_csv("/deep/group/aicc-bootcamp/transportation/data/fusion/train.csv", header=0)
-# image_paths = np.asarray(train.iloc[:, 1])
-image_paths = [
-    "/deep/group/aicc-bootcamp/transportation/data/dvrpc/aerial/good2010/imagery/500:0:0.1:18:-303:89579.png",  # no sidewalks
-    "/deep/group/aicc-bootcamp/transportation/data/dvrpc/aerial/good2015/imagery/500:0:0.1:18:-244:88534.png",  # w/ sidewalks at an intersection 
-    "/deep/group/aicc-bootcamp/transportation/data/dvrpc/aerial/good2015/imagery/500:0:0.1:18:-655:88899.png",  # only sidewalks, no intersection
-]
+#image_paths = np.asarray(train.iloc[:, 1])
+#image_paths = [
+#    "/deep/group/aicc-bootcamp/transportation/data/dvrpc/aerial/good2010/imagery/500:0:0.1:18:-303:89579.png",  # no sidewalks
+#    "/deep/group/aicc-bootcamp/transportation/data/dvrpc/aerial/good2015/imagery/500:0:0.1:18:-244:88534.png",  # w/ sidewalks at an intersection 
+#    "/deep/group/aicc-bootcamp/transportation/data/dvrpc/aerial/good2015/imagery/500:0:0.1:18:-655:88899.png",  # only sidewalks, no intersection
+#]
 # more positive examples here - /deep/group/aicc-bootcamp/transportation/data/dvrpc/labels/examples
 
 rows_to_drop = []
@@ -46,10 +50,10 @@ for idx, image_path in enumerate(tqdm(image_paths)):
     #to_keep = gdf.intersects(polygon).any()
     #to_keep = unioned.intersects(polygon)
     
-    print(to_keep)  # expected: False, True, True
+    #print(to_keep)  # expected: False, True, True
     
-    # if not to_keep:
-    #     rows_to_drop.append(idx)
+    if not to_keep:
+        rows_to_drop.append(idx)
 
-# train = train.drop(rows_to_drop)
-# train.save_csv("/deep/u/ayushsn/satellite-pixel-synthesis-pytorch/preprocess/train_osmnx.csv")
+train = train.drop(rows_to_drop)
+train.to_csv("/deep/u/ayushsn/satellite-pixel-synthesis-pytorch/preprocess/train_osmnx_2k.csv")

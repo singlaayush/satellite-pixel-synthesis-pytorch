@@ -276,7 +276,7 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, test_
                         value_range=(-1, 1),
                     )
 
-                    if i == 0:
+                    if i == 0 or i == 360000:
 #                         lowres_img = torch.nn.functional.interpolate(lowres_img, (10, 10))
 #                         lowres_img = torch.nn.functional.interpolate(lowres_img, (args.size, args.size))
                         utils.save_image(
@@ -389,7 +389,7 @@ if __name__ == '__main__':
     path = args.out_path
     
     local_rank = int(os.environ["LOCAL_RANK"])
-
+    print("local rank ", local_rank)
     Generator = getattr(model, args.Generator)
     print('Generator', Generator)
     Discriminator = getattr(model, args.Discriminator)
@@ -454,14 +454,15 @@ if __name__ == '__main__':
         lr=args.lr * d_reg_ratio,
         betas=(0 ** d_reg_ratio, 0.99 ** d_reg_ratio),
     )
+    
+    ckpt_path = "/deep/group/aicc-bootcamp/transportation/models/generative/naip-dvrpc-10-15/outputs/29nov22_centercrop_lr_0.004_d_2/checkpoints/360000.pt"
+    if ckpt_path is not None:
+        print('load model:', ckpt_path)
 
-    if args.ckpt is not None:
-        print('load model:', args.ckpt)
-
-        ckpt = torch.load(args.ckpt)
+        ckpt = torch.load(ckpt_path)
 
         try:
-            ckpt_name = os.path.basename(args.ckpt)
+            ckpt_name = os.path.basename(ckpt_path)
             args.start_iter = int(os.path.splitext(ckpt_name)[0])
         except ValueError:
             pass
